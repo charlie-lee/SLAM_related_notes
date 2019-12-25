@@ -21,9 +21,9 @@ Features:
 
 - Combine the complementary strength of direct and feature-based methods
 - 2 modules running in parallel: 
-  1) Direct odometry module: use direct method to track new frames based on a 
+  1) Direct odometry module: uses direct method to track new frames based on a 
      local semi-dense map
-  2) Feature-based module: build a sparse feature-based map based on tracked 
+  2) Feature-based module: builds a sparse feature-based map based on tracked 
      map points and poses
 - 3 levels of parallel optimizations
   1) Photometric bundle adjustment (BA): 
@@ -66,6 +66,13 @@ Features:
 
 System diagram:  
 ![System Diagram](images/ch06/tang2019_fig_02.jpg){ width=100% }
+
+- 4 major stages:
+  1) Depth/normal generation using CNN
+  2) Visual tracking using direct alignment (direct sparse odometry, DSO)
+  3) Geometrical sparse to dense reconstruction
+  4) Fusion-based mapping
+- Contribution on stage 1 & 3
 
 
 \newpage
