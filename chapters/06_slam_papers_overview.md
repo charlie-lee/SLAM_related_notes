@@ -36,6 +36,7 @@ Features:
 
 System diagram:  
 ![System Diagram](images/ch06/shlee2019_fig_02.jpg){ width=100% }
+- Built upon direct sparse odometry (DSO) & ORB-SLAM
 
 #### 2.1.2 Sparse2Dense: From Direct Sparse Odometry to Dense 3-D Reconstruction [@Tang2019]
 
@@ -73,6 +74,72 @@ System diagram:
   3) Geometrical sparse to dense reconstruction
   4) Fusion-based mapping
 - Contribution on stage 1 & 3
+
+#### 2.1.3 Tightly-Coupled Visual-Inertial Localization and 3-D Rigid-Body Target Tracking [@Eckenhoff2019]
+
+- [Paper](https://ieeexplore.ieee.org/document/8629939)
+
+Features:
+
+- Tightly-coupled estimator for visual-inertial localization and target tracking
+  (VILTT)
+  - Buiit upon visual-inertial navigation system (VINS) which is based on 
+    multi-state constraint Kalman filter (MSCKF) framework
+  - Generalize the VINS to incorporate a 6DOF rigid-body target tracking
+    of a 3D moving object
+- Key contribution: tightly-coupling of target motion estimation within VINS
+- Represent the target object as a 3D rigid-body model rather than a point with
+  the following data:
+  - 6 DOF target pose
+  - Features attached
+- Introduced 3 stochastic target motion models for a broad range of realistic
+  target tracking scenarios
+
+#### 2.1.4 Dense-ArthroSLAM: Dense Intra-Articular 3-D Reconstruction With Robust Localization Prior for Arthroscopy [@Marmol2019]
+
+- [Paper](https://ieeexplore.ieee.org/document/8606964)
+
+Features:
+
+- Dense-ArthroSLAM: a SLAM system based on *ArthroSLAM* for arthroscopy 
+
+- *ArthroSLAM*
+  - A *sparse* SLAM system
+  - 2 visual sensors are attached to the final link of a robotic arm
+    - Arthroscopic camera for intra-articular tissues
+    - External camera for the exterior of the patient anatomy
+  - Raw camera measurements are fused with robot's odometry in an extended
+    Kalman filter (EKF) framework
+  - Role: as a robust localization prior for reliable camera pose information
+
+- Improvement over original *ArthroSLAM*
+  - Added a robust localizer with a keyframe selection strategy
+    - A mix of 2 strategies:
+      1) The amount of translational and rotational variation
+      2) Certain number of frames
+  - Added a batch multiview stereo (MVS) for 3D reconstruction
+    - Re-detect SIFT features in the keyframes and do brute-force matching
+    - Triangulation: 2 random keyframes having at least 5 degrees between 
+      viewing rays
+    - 3D points and camera poses are refined using BA for every keyframe added
+      to the optimization
+    - Outlier removal scheme
+    - Use a patch-match for per-pixel intensity similarity, and jointly
+      optimize depth and normal of point clouds
+    - Valid pixel observations are fused into a dense scene reconstruction of
+      the tissues
+      - Resulting point cloud with associated normals can be used to infer a
+        surface mesh and approximate a reconstructed area
+
+- Outperform state-of-the-art SLAM methods (*ORB-SLAM* for feature-based,
+  and *LSD-SLAM* for direct-based) both in reliability and estimation accuracy
+
+System diagram:  
+![System Diagram](images/ch06/marmol2019_fig_01.jpg){ width=50% }
+
+- Art.: Arthroscopic
+- Ext.: External
+- New components are in red
 
 
 \newpage

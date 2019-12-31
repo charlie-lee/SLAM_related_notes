@@ -153,3 +153,5 @@ d. Euler angles
     ![rotmat_euler](images/ch98/04_rotmat_euler.jpg)
   - Rotation matrix to yaw, pitch, roll in Eigen ([ref](https://eigen.tuxfamily.org/dox/group__Geometry__Module.html#title40)):
     - `R.eulerAngles(2, 1, 0).reverse; `{.cpp}
+
+\newpage
