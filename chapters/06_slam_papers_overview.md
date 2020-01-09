@@ -2,16 +2,129 @@
 
 ## 1. Classic Papers
 
-### 1.1 Systems based on Direct Method
+### 1.1 Direct-Based Systems
 
-#### 1.1.1 SVO - Fast Semi-Direct Monocular Visual Odometry [@Forster2014]
+#### 1.1.1 SVO - Fast Semi-Direct Monocular Visual Odometry [@Forster2014SVO]
 
 - [Paper](https://infoscience.epfl.ch/record/199740/files/ICRA14_Forster.pdf)
+
+##### 1.1.1.1 Overview
+
+- System diagram:  
+  ![System Diagram](images/ch06/forster2014_fig_01_diagram.jpg){ width=50% }
+
+- System overview:
+
+  - Motion estimation thread
+    - Pose initialization: through sparse model-based image alignment
+      - Find relative pose \( \V{T}_{k,k-1} \)
+    - Pose & structure refinement: BA procedure
+    
+  - Mapping thread
+    - Depth-filter
+      - Initialized with a large uncertainty in depth
+      - Updated in a Bayesian fashion
+      - Depth is computed from the point in non-reference frame
+        with the highest correlation (the point lying on the epipolar line) 
+        with the reference patch
+    - Add new 3D point only if the depth-filter is converged (i.e., depth
+      uncertainty is small enough)
+    
+##### 1.1.1.2 Motion Estimation
+
+- Procedures:
+
+  1) Sparse Model-based Image Alignment  
+     ![Sparse Alignment](images/ch06/forster2014_fig_02_sparse_img_align.jpg){ width=50% }
+     - Goal: compute relative pose \( \V{T}_{k,k-1} \) from frame \( k-1 \) to
+       frame \( k \) through minimization of photometric error of image patches
+     - Minimization of reprojection error through Gauss-Newton procedure
+     - Optimize both camera pose and image patch positions in the current frame
+  
+  2) Feature Alignment  
+     ![Feature Alignment](images/ch06/forster2014_fig_03_feat_align.jpg){ width=50% }
+     - Goal: further minimize photometric error of feature patches by estimating
+       new feature positions in current frame w.r.t. reference keyframe
+     - Solved using inverse compositional Lucas-Kanade algorithm [@Baker2004LK]
+       - *Inverse compositional*: apply the delta parameters on the
+         template/reference image during an iteration of optimization, instead
+         of the current image, and then update the parameters with the inverse 
+         of the delta parameters
+     - Camera pose is not involved in the minimization scheme
+     - Only the feature patch positions are optimized
+     - A relaxation scheme: because of the violation of epipolar constraint
+       for higher correlation between the feature patches
+  
+  3) Pose & Structure Refinement  
+     ![BA](images/ch06/forster2014_fig_04_ba.jpg){ width=50% }
+     - Step 1: motion-only BA: only optimize the camera pose
+     - Step 2: structure-only BA: only optimize the 3D points
+     - Step 3: (optional) local BA: optimize both local poses and 3D points
+     - Minimization of reprojection error through Gauss-Newton procedure
+
+- Advantages of the above procedures combined:
+
+  - Advantage of the 1st procedure
+    - The procedure implicitly satisfies epipolar constraint and ensures 
+      there's no outliers
+    - Without this procedure, the tracking will be slower because
+      of the tracking of all features over large distances, whereas this
+      procedure only optimizes 6 parameters
+  - Advantage of the combination of the 3 procedures:
+    - 2nd and 3rd procedures are necessary to reduce drift
+      - 3rd procedure: image alignment w.r.t. the map and keyframes
+      - 1st procedure only aligns image w.r.t. the previous frame
+
+##### 1.1.1.3 Mapping
+
+- Depth-filter in SVO:  
+  ![Depth Filter](images/ch06/forster2014_fig_05_depth_filter.jpg){ width=50% }
+  - Modification to the original depth-filter in [@Vogiatzis2011DF]
+
+- Find depth of a image point via depth-filter associated with a keyframe
+- Search for a patch on the epipolar line in the new image that has the 
+  highest correlation (most probable depth) with the reference patch
+- Depth measurement is modeled with a Gaussian + uniform mixture model
+  - Gaussian distribution for inlier
+  - Uniform distribution for outlier
+  - Weighted average of the 2 distributions
+
+##### 1.1.1.4 Implementation Details
+
+- System initialization:
+  - Assume a locally planar scene and estimate a homography: compute 
+    1st pose via decomposition of \( \V{H} \)
+
+- Sparse image alignment
+  - Coarse-to-fine scheme: utilize a image pyramid of 5 levels with scale 
+    factor of 2
+  - Optimization on the coarsest level for an initial solution
+  - Continue optimization on finer level and stop after convergence on the 
+    3rd level
+
+- Mapping
+  - Fixed number of keyframes
+    - Queue: new keyframe added will cause the farthest keyframe to be removed
+  - Keyframe selection scheme: Euclidean distance of the new frame relative to
+    all keyframes exceeds 12% of the average scene depth
+  - Feature extraction
+    - Divide the image in cells of fixed size (\( 30 \times 30 \) pixels)
+    - Extract FAST corners with the highest Shi-Tomasi score in each image cell
+      at *all levels* of the pyramid
+      - Skip this step if the cell already has a 2D-to-3D correspondence
+
+#### 1.1.2 LSD-SLAM: Large-scale Direct Monocular SLAM [@Engel2014LSD]
+
+      
+### 1.2 Feature-based Systems
+
+
+### 1.3 Systems in Kalman Filter Framework
 
 
 ## 2. New Papers (2019)
 
-### 2.1 ICRA 2019
+### 2.1 IEEE International Conference on Robotics and Automation 2019 (ICRA2019)
 
 #### 2.1.1 Loosely-Coupled Semi-Direct Monocular SLAM [@SHLee2019]
 
@@ -141,5 +254,58 @@ System diagram:
 - Ext.: External
 - New components are in red
 
+#### 2.1.5 Modeling Perceptual Aliasing in SLAM via Discrete–Continuous Graphical Models [@Lajoie2019DCGM]
+
+- [Paper](https://ieeexplore.ieee.org/document/8624393)
+
+Features:
+
+- A unified framework to model perceptual aliasing (wrong data association) in 
+  SLAM 
+  - Discrete-continuous graphical model (*DC-GM*)  
+    ![DC-GM](images/ch06/lajoie2019_fig_01_dcgm.jpg){ width=60% }
+    - Continuous portion: describes the standard SLAM formulation, i.e., 
+      a pose graph
+    - Discrete portion: describes outlier selection and models correlation
+      - A Markov random field
+- Practical algorithms to cope with outliers without relying on initial guess
+  for optimization
+  - Semidefinite relaxation to perform inference in *DC-GM* and returns 
+    estimates with provable sub-optimality guarantees
+    
+Limitations:
+
+- MATLAB implementation: slow, and only tested for relatively small 
+  2D SLAM problems
+
+
+### 2.2 Robotics: Science and Systems 2019 (RSS2019)
+
+#### 2.2.1 Continuous Direct Sparse Visual Odometry from RGB-D Images [@Ghaffari2019RGBDVO]
+
+- [Paper](http://www.roboticsproceedings.org/rss15/p44.html)
+
+Features:
+
+- A direct and continuous energy-based formulation and solution for the
+  RGB-D visual odometry problem (sensor registration problem)
+  - Direct: relates to direct-based method
+  - Continuous: the formulation of the image registration problem, given
+    discrete cloud measurements, is in a continuous form (based on continuous
+    camera motion)
+    - Operates from 3D space to an abstract information space such as 
+      intensity surface
+    - Continuity is achieved via functional treatment of the problem,
+      and representing the functions in a reproducing kernel Hilbert space
+- Do not rely on the association between 2 measurements and the same number
+  of measurements within each set because of the continuous formulation
+- The developed framework is not limited to specific image resolution
+- The framework is fully analytical and the gradient has a complete closed-form
+  derivation
+  - It is opposed to the current direct energy formulation:
+    a) Computation of numerical image intensity gradient
+    b) The use of the gradient with the Jacobian of the pose via the chain rule
+- The proposed method can be an alternative to the core module of many modern
+  visual odometry and tracking systems
 
 \newpage

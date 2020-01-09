@@ -23,12 +23,13 @@ link-citations: true
 # font specification for XeLaTeX (default: Latin Modern family)
 #mainfont: TeX Gyre Schola
 #mathfont: TeX Gyre Schola Math
-# include LaTex packages & macros
+# include LaTeX packages & macros
 header-includes:
 - |
   ```{=latex}
   % math library
   \usepackage{mathtools}
+  \everymath{\displaystyle} % force display style
   
   % for subsections with more depths
   \usepackage{enumitem}
