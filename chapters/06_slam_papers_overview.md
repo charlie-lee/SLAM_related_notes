@@ -130,6 +130,10 @@
 
 - [Paper](https://ieeexplore.ieee.org/abstract/document/8584894)
 
+System diagram:  
+![System Diagram](images/ch06/shlee2019_fig_02.jpg){ width=100% }
+- Built upon direct sparse odometry (DSO) & ORB-SLAM
+
 Features:
 
 - Combine the complementary strength of direct and feature-based methods
@@ -147,13 +151,19 @@ Features:
 - Achieve real-time by limiting feature-based operations to marginalized 
   keyframes from the direct odometry module
 
-System diagram:  
-![System Diagram](images/ch06/shlee2019_fig_02.jpg){ width=100% }
-- Built upon direct sparse odometry (DSO) & ORB-SLAM
-
 #### 2.1.2 Sparse2Dense: From Direct Sparse Odometry to Dense 3-D Reconstruction [@Tang2019]
 
 - [Paper](https://ieeexplore.ieee.org/document/8605349)
+
+System diagram:  
+![System Diagram](images/ch06/tang2019_fig_02.jpg){ width=100% }
+
+- 4 major stages:
+  1) Depth/normal generation using CNN
+  2) Visual tracking using direct alignment (direct sparse odometry, DSO)
+  3) Geometrical sparse to dense reconstruction
+  4) Fusion-based mapping
+- Contribution on stage 1 & 3
 
 Features:
 
@@ -177,16 +187,6 @@ Features:
       with an encoder-decoder structure based on *ResNet-50*
     - right: FCDRN with *Resnet-50* replaced by the *Dilated Residual Network* 
       (DRN)
-
-System diagram:  
-![System Diagram](images/ch06/tang2019_fig_02.jpg){ width=100% }
-
-- 4 major stages:
-  1) Depth/normal generation using CNN
-  2) Visual tracking using direct alignment (direct sparse odometry, DSO)
-  3) Geometrical sparse to dense reconstruction
-  4) Fusion-based mapping
-- Contribution on stage 1 & 3
 
 #### 2.1.3 Tightly-Coupled Visual-Inertial Localization and 3-D Rigid-Body Target Tracking [@Eckenhoff2019]
 
@@ -307,5 +307,57 @@ Features:
     b) The use of the gradient with the Jacobian of the pose via the chain rule
 - The proposed method can be an alternative to the core module of many modern
   visual odometry and tracking systems
+
+#### 2.2.2 PoseRBPF: A Rao-Blackwellized Particle Filter for 6D Object Pose Estimation [@Deng2019PoseRBPF]
+
+- [Paper](http://www.roboticsproceedings.org/rss15/p49.html)
+
+System diagram:  
+![System Diagram](images/ch06/deng2019_fig_05_diagram.jpg){ width=100% }
+
+- Propagation: estimate current pose based on previous pose using motion prior
+
+Rotation computation:  
+![Rotation Computation](images/ch06/deng2019_fig_03_rot.jpg){ width=100% }
+
+Features:
+
+- PoseRBPF: 6D object pose tracking based on Rao-Blackwellized particle 
+  filter (RBPF) framework
+- Pose is factorized into translation and rotation parts
+  - Rotation
+    - Rotation space is discretized at 5 degree resolution
+      (\( 72 \times 37 \times 72 = 191808 \) bins for elevation only ranges
+      from -90 to 90 degree)
+    - An auto-encoder network is trained as an observation model to construct
+      a codebook of feature embeddings for the discretized rotations
+- Procedures: for each particle,
+  1) Determine the center and the size of the object bounding box in the 
+     image via 3D translation data
+  2) Determine embedding of the bounding box
+  3) Update rotation distribution by comparing the embedding value with the
+     pre-computed entries in the codebook using cosine distance
+  4) Compute the weight of the particle from the normalization factor of the
+     rotation distribution
+  5) Update motion by sampling from a motion model over poses and a 
+     convolution over rotations
+     
+#### 2.2.3 VIMO: Simultaneous Visual Inertial Model-Based Odometry and Force Estimation [@Nisar2019VIMO]
+
+Features:
+
+- VIMO: visual inertial model-based odometry with an added motion constraint
+  - Motion constraint is derived from the dynamic model including 
+    *external forces*
+  - Model dynamics and external force are combined in a preintegrated residual  
+    ![Factor Graph](images/ch06/nisar2019_fig_01_graph.jpg){ width=60% }
+    - The residual makes current visual inertial odometry (VIO) framework 
+      jointly estimate this force in addition to the robot state and IMU bias
+  - Built upon a state-of-the-art VIO system the VINS-mono system
+  - Tightly-coupled, sliding-window visual inertial estimator
+  - Input: visual-inertial measurements & the collective thrust
+  - Estimation strategy: nonlinear optimization (BA)
+- (1st approach to) Exploit model dynamics by jointly estimating motion 
+  and external force
 
 \newpage
