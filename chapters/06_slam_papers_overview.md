@@ -88,6 +88,24 @@
   - Gaussian distribution for inlier
   - Uniform distribution for outlier
   - Weighted average of the 2 distributions
+    - Weight: inlier ratio \( \pi \)
+- Depth-filter update:
+  - Depth posterior: product of a **Gaussian** for the *depth* \( Z \) with a 
+    **Beta** distribution for the *inlier ratio* \( \pi \) as an *approximation*
+    - \( Z \sim \mathcal{N}(\mu, \sigma^2) \), \( \pi \sim Beta(a, b) \)
+  - Bayesian update: 
+    \( p(Z, \pi | x_n) = \frac {p(x_n | Z, \pi) p(Z, \pi)} {p(x_n)} \)
+    - Prior: \( p(Z, \pi) = p(Z) p(\pi) \)
+    - Likelihood: \( p(x_n | Z, \pi) \)
+    - Posterior \( p(Z, \pi | x_n) \) approximated by a \( Gaussian \times Beta \)
+      distribution \( q(Z, \pi | a, b, \mu, \sigma^2) \)
+    - Update step: 
+      - Match the 1st and 2nd moment of 
+        \( p(x | Z, \pi) q(Z, \pi | a, b, \mu, \sigma^2) \)
+        and \( q(Z, \pi | a', b', \mu', \sigma'^2 \)
+      - Solve 4 equations to get \( a' \), \( b' \), \( \mu' \), and 
+        \( \sigma'^2 \), and substitute the 4 old parameters, and also
+        get the new measurement \( x \)
 
 ##### 1.1.1.4 Implementation Details
 
@@ -115,11 +133,269 @@
 
 #### 1.1.2 LSD-SLAM: Large-scale Direct Monocular SLAM [@Engel2014LSD]
 
+- [Paper](https://vision.in.tum.de/_media/spezial/bib/engel14eccv.pdf)
+
+##### 1.1.2.1 Overview
+
+- System diagram:  
+  ![Overview](images/ch06/engel2014_fig_03_lsd_slam.jpg)
+
+- Features
+  - Direct method to align 2 keyframes on \( \mathfrak{sim}(3) \)
+    - Incorporate and detect scale-drift in a novel scale-aware image alignment
+      algorithm
+    - Detect loop closures
+  - Probabilistic approach to incorporate noise on the estimated depth maps
+    into tracking
+  - A semi-dense map represented as point clouds
+  - Tracking in environment with large variations in scale and large rotation
+
+##### 1.1.2.2 Complete Method
+
+- 3 major components
+  - **Tracking**
+    - Estimates pose \( \BG{\xi} \in \mathfrak{se}(3) \) w.r.t. the current
+      keyframe, using the previous frame as initialization
+  - **Depth Map Estimation**
+    - Uses tracked frames to either *refine* or *replace* the current keyframe
+  - **Map Optimization**
+    - Detect loop closures and scale-drift by estimating a similarity transform
+      \( \BG{\xi} \in \mathfrak{sim}(3) \) to close-by existing keyframes
+      in a scale-aware & direct \( \mathfrak{sim}(3) \)-image alignment scheme
+
+- Initialization scheme
+  - Initialize a first keyframe with a *random* depth map and large variance
+
+##### 1.1.2.3 Map Representation
+
+- Global map as pose graph
+- Vertices: keyframes \( \mathcal{K}_i \)
+  - Camera image \( I_i: \Omega \to \F{R} \)
+  - Inverse depth map \( D_i: \Omega_{D_i} \to \F{R}^+ \) where 
+    \( \Omega_{D_i} \subset \Omega_i \)
+  - Variance of inverse depth \( V_i: \Omega_{D_i} \to \F{R}^+ \)
+- Edges \( \mathcal{E}_{ji} \)
+  - Relative alignment \( \BG{\xi}_{ji} \in \mathfrak{sim}(3) \)
+  - Corresponding covariance matrix \( \BG{\Sigma}_{ji} \)
+
+##### 1.1.2.4 Tracking: Direct \( \mathfrak{se}(3) \) Image Alignment
+
+- Minimize the variance-normalized photometric error
+  \[
+     E_p(\BG{\xi}_{ji}) 
+     = \sum_{p \in \Omega_{D_i}} 
+       \| \frac {r_p^2(\V{p}, \BG{\xi}_{ji})} 
+                {\sigma_{r_p(\V{p}, \BG{\xi}_{ji})}^2}
+       \|_\delta
+  \]
+  where
+  \[
+     r_p(\V{p}, \BG{\xi}_{ji}) 
+     = I_i(\V{p}) - I_j(\omega(\V{p}, D_i(\V{p}), \BG{\xi}_{ji}))
+  \]
+  being the photometric error/residual with \( \omega(\cdot) \) as the mapping of
+  pixel \( \V{p} \) in reference image \( I_i \) to the current image \( I_j \),
+  given the relative pose \( \BG{\xi}_{ji} \in \mathfrak{se}(3) \), and
+  \[
+     \omega_{r_p(\V{p}, \BG{\xi}_{ji})}^2
+     = 2\omega_I^2 
+       + (\frac {\partial r_p(\V{p}, \BG{\xi}_{ji})} 
+                {\partial D_i(\V{p})})^2 V_i(\V{p})
+  \]
+  being the variance of the residual term taking into account image noise 
+  \( \omega_I^2 \) (assumed to bew Gaussian) and varying noise on 
+  depth estimates, and \( \| \cdot \|_\delta \) being the Huber norm
+
+##### 1.1.2.5 Depth Map Estimation
+
+- Depth map creation for new keyframe
+  - Project points from the previous keyframe to the new one
+  - Perform spatial regularization and outlier removal as described in 
+    [@Engel2013VO]
+  - Scale the depth map to have a mean inverse depth of one
+    - The scaling factor is incorporated into the \( \mathfrak{sim}(3) \) pose
+  - Replace the previous keyframe and use it for tracking subsequent new frames
+- Depth map refinement [@Engel2013VO]
+  - Filter over many per-pixel, small baseline stereo comparisons coupled with 
+    interleaved spatial regularization
+    - For each pixel, find a previous reference frame as *old* as possible
+    - Given known relative pose and the pixel, compute the epipolar line on 
+      the reference frame
+    - Stereo matching: perform an exhaustive search alone the epipolar line
+      using *SSD* error (over 5 equidistant points on the line)
+    - Identify 3 major factors which determine the accuracy of such a stereo 
+      observation, and determine which pixel is worth updating the depth 
+      estimation
+
+##### 1.1.2.6 Constraint Acquisition: Direct \( \mathfrak{sim}(3) \) Image Alignment
+
+- Perform *direct, scale-drift aware image alignment* on \( \mathfrak{sim}(3) \)
+  to align 2 differently scaled keyframes
+  - Add a depth redisual \( r_d \) to the error function defined for tracking
+  \[
+     E(\BG{\xi}_{ji}) 
+     = \sum_{p \in \Omega_{D_i}} 
+       \| \frac {r_p^2(\V{p}, \BG{\xi}_{ji})} 
+                {\sigma_{r_p(\V{p}, \BG{\xi}_{ji})}^2}
+          + \frac {r_d^2(\V{p}, \BG{\xi}_{ji})} 
+                  {\sigma_{r_d(\V{p}, \BG{\xi}_{ji})}^2}
+       \|_\delta
+  \]
+  where
+  \[ r_d(\V{p}, \BG{\xi}_{ji}) = [\V{p}']_3 - D_j([\V{p}']_{1,2}) \]
+  with \( [\cdot]_k \) meaning the \( k \)th row of a matrix
+
+- Constraint search (loop closure detection)
+  - Use the closest 10 keyframes and a suitable candidate keyframe proposed
+    by an appearance-based mapping algorithm [@Glover2011OpenFABMAP] 
+    to detect loop closures
+  - Perform a **reciprocal tracking check** for each candidate keyframe 
+    \( \mathcal{K}_{j_k} \):
+    - Independently track \( \BG{\xi}_{j_k i} \) and \( \BG{\xi}_{i j_k} \)
+    - Only if the 2 estimates are statistically similar are they added to the
+      global map
+      
+- Improve convergence radius (ability to track large motion) for 
+  \( \mathfrak{sim}(3) \) tracking (direct \( \mathfrak{sim}(3) \) image 
+  alignment)
+  - Use a small number of keypoints to compute a better initialization 
+  - Use **Efficient Second Order Minimization (ESM)** [@Benhimane2004ESM]
+  - Use coarse-to-fine search (image pyramids) starting at a very low 
+    resolution (such as \( 20 \times 15 \))
+
+##### 1.1.2.7 Map Optimization
+
+- Map: keyframes + tracked \( \mathfrak{sim}(3) \) constraints
+- Continuously optimize the map in the background using pose graph optimization
+  (implemented using *g2o*)
+  - Vertices: pose \( \BG{\xi}_{Wi} \in \mathfrak{sim}(3) \) in the world 
+    coordinate frame for keyframe \( \mathcal{K}_i \)
+    - \( W \): world coordinate frame
+  - Edges \( \mathcal{E} \): 
+    relative pose \( \BG{\xi}_{ji} \)  from keyframe \( \mathcal{K}_i \)
+    to \( \mathcal{K}_j \)
+  - Error function:
+    \[
+       E(\BG{\xi}_{W1}, \dots, \BG{\xi}_{Wn})
+       = \sum_{(\BG{\xi}_{ji}, \BG{\Sigma}_{ji}) \in \mathcal{E}}
+         (\BG{\xi}_{ji} \circ \BG{\xi}_{Wi}^{-1} \circ \BG{\xi}_{Wj})^T 
+         \BG{\Sigma}_{ji}^{-1} 
+         (\BG{\xi}_{ji} \circ \BG{\xi}_{Wi}^{-1} \circ \BG{\xi}_{Wj})
+    \]
+    
       
 ### 1.2 Feature-based Systems
 
 
 ### 1.3 Systems in Kalman Filter Framework
+
+#### 1.3.1 A Multi-State Constraint Kalman Filter for Vision-aided Inertial Navigation [@Mourikis2007MSCKF]
+
+- [Paper](https://ieeexplore.ieee.org/document/4209642)
+
+##### 1.3.1.1 Overview
+
+- A visual inertial navigation system (VINS), **MSCKF** in short
+  - Camera + inertial measurement unit (IMU)
+
+- Features
+  - An EKF-based algorithm in real time for VIN
+  - Main contribution:
+    - Proposed a **measurement model** for the expression of geometric 
+      constraints when observing a landmark from multiple camera poses
+      - The geometric constraints involve all related camera poses that observe
+        the landmark
+    - The measurement model **does not require including 3D feature position** 
+      in the state vector of EKF, resulting in computational complexity only
+      **linear** in the number of features
+    - The measurement model is **optimal** and **up to linearization errors**
+
+- Terms
+  - \( \left\{ I \right\} \): IMU-affixed frame
+  - \( \left\{ G \right\} \): global frame
+    - Chosen as *Earth-Centered, Earth-Fixed* (ECEF) frame:
+      - \( (X, Y, Z) \) coordinates
+      - \( (0, 0, 0) \) is defined as the center mass of Earth
+      - Z-axis: extends through true north
+      - X-axis: intersects the sphere of the earth at \( 0^{\circ} \) latitude
+        (the equator) and \( 0^{\circ} \) longitude (prime meridian in 
+        Greenwich)
+      - Right-handed coordinate system
+
+- Proposed algorithm  
+  ![MSCKF](images/ch06/mourikis2007_alg_01_msckf.jpg){ width=50% }
+  
+- EKF state vector at any time instant
+  - Evolving IMU state \( \V{X}_{IMU} \)
+  - History of up to \( N_{max} \) past camera poses
+
+##### 1.3.1.2 Structure of EKF State Vector
+
+- Evolving IMU state
+  \[ 
+     \V{X}_{IMU} = \begin{bmatrix}
+       {}_{G}^{I}\bar{\V{q}}^T &
+       \V{b}_g^T &
+       {}^{G}\V{v}_I^T &
+       \V{b}_a^T &
+       {}^{G}\V{p}_I^T
+     \end{bmatrix}^T
+  \]
+  - \( {}_{G}^{I}\bar{\V{q}}^T \): unit **q**uaternion of rotation from
+    global frame \( \left\{ G \right\} \) to IMU frame \( \left\{ I \right\} \)
+  - \( {}^{G}\V{v}_I^T \) & \( {}^{G}\V{p}_I^T \): 
+    **v**elocity and **p**osition of IMU w.r.t. \( \left\{ G \right\} \)
+  - \( \V{b}_g^T \) & \( \V{b}_a^T \): **b**iases which affect the 
+    **g**yroscope and **a**ccelerometer measurements
+    - They are modeled as random walk processes, driven by white Gaussian noise
+      vectors \( \V{n}_{wg} \) and \( \V{n}_{wa} \)
+- IMU error-state
+  \[
+     \tilde{\V{X}}_{IMU} = \begin{bmatrix}
+       \delta\BG{\theta}_I^T &
+       \tilde{\V{b}}_g^T &
+       {}^{G}\tilde{\V{v}}_I^T &
+       \tilde{\V{b}}_g^T &
+       {}^{G}\tilde{\V{p}}_I^T
+     \end{bmatrix}^T
+  \]
+  - Error definitions:
+    - Standard additive errors for *position*, *velocity*, and *biases*
+      - \( \tilde{x} = x - \hat{x} \) (error = real - estimate)
+    - Error for quaternion \( \bar{\V{q}} \): *error quaternion* 
+      \( \delta\bar{\V{q}} \)
+      - \( \hat{\V{q}} = \delta\bar{\V{q}} \otimes \hat{\bar{\V{q}}} \) where
+        \( \otimes \) denotes quaternion multiplication
+
+- EKF state vector at time-step \( k \) with \( N \) camera poses included:
+  \[
+     \hat{\V{X}}_k = \begin{bmatrix}
+       \hat{\V{X}}_{{IMU}_k}^T &
+       {}_G^{C_1}\hat{\bar{\V{q}}}^T &
+       {}^G\hat{\V{p}}_{C_1}^T &
+       \dots &
+       {}_G^{C_N}\hat{\bar{\V{q}}}^T &
+       {}^G\hat{\V{p}}_{C_N}^T
+     \end{bmatrix}^T
+  \]
+  - \( {}_G^{C_i}\hat{\bar{\V{q}}}^T \) & \( {}^G\hat{\V{p}}_{C_i}^T \):
+    \( i \)th estimate of the camera attitude/pose and position
+
+- EKF error-state vector at time-step \( k \) with \( N \) camera poses 
+  included:
+  \[
+     \tilde{\V{X}}_k = \begin{bmatrix}
+       \tilde{\V{X}}_{{IMU}_k}^T &
+       \BG{\delta\theta}_{C_1}^T
+       {}^G\tilde{\V{p}}_{C_1}^T &
+       \dots &
+       \BG{\delta\theta}_{C_N}^T
+       {}^G\tilde{\V{p}}_{C_N}^T
+     \end{bmatrix}^T
+  \]
+
+##### 1.3.1.3 Propagation
+
 
 
 ## 2. New Papers (2019)
@@ -132,6 +408,7 @@
 
 System diagram:  
 ![System Diagram](images/ch06/shlee2019_fig_02.jpg){ width=100% }
+
 - Built upon direct sparse odometry (DSO) & ORB-SLAM
 
 Features:
@@ -277,6 +554,101 @@ Limitations:
 
 - MATLAB implementation: slow, and only tested for relatively small 
   2D SLAM problems
+  
+#### 2.1.6 FMD Stereo SLAM: Fusing MVG and Direct Formulation Towards Accurate and Fast Stereo SLAM [@Tang2019FMD]
+
+- [Paper](https://ieeexplore.ieee.org/document/8793664)
+
+System diagram:  
+![System Diagram](images/ch06/tang2019_fig_01_fmd.jpg){ width=80% }
+
+Features:
+
+- Stereo visual SLAM system
+- **F**usion of key-feature-based **M**ultiple view geometry (MVG) and 
+  **D**irect formulation (FMD)
+  - Make full use of advantages from *SVO* and *ORB-SLAM*
+- Front-end: make the system faster
+  - Use *direct formulation* and *constant motion model* to predict an 
+    initial pose
+  - Reproject local map for 3D-to-2D correspondences
+  - Refine the pose by *reprojection error minimization*
+- Back-end: make the system more accurate
+  - Use MVG to estimate 3D structure
+    - Perform triangulation for new map points when a new keyframe is inserted
+    - Remove outliers in the map and maintain a global map by BA
+
+#### 2.1.7 GEN-SLAM: Generative Modeling for Monocular Simultaneous Localization and Mapping [@Chakravarty2019GENSLAM]
+
+- [Paper](https://ieeexplore.ieee.org/document/8793530)
+
+System diagram:  
+![System Diagram](images/ch06/chakravarty2019_fig_04_gen_slam.jpg){ width=70% }
+
+Features:
+
+- Deep learning based visual SLAM system
+- Use a *CNN* to localize in a topological map
+- Generative modeling: encoder-decoder architecture with shared latent space
+  for *variational auto encoder* (VAE)
+  - 2 encoders and 2 decoders, and one each for RGB and depth respectively
+  - Use a *conditional variational auto encoder* (VAE) for depth map,
+    conditioned on the CNN-estimated pose
+  - Employ 4 reconstruction losses to train the network
+    - RGB -> RGB
+    - Depth -> Depth
+    - RGB -> Depth
+    - Depth -> RGB
+- RGB VAE structure:  
+  ![RGB VAE](images/ch06/chakravarty2019_fig_02_rgb_vae.jpg){ width=75% }
+  
+#### 2.1.8 RESLAM: A Real-time Robust Edge-based SLAM System [@Schenk2019RESLAM]
+
+- [Paper](https://ieeexplore.ieee.org/document/8794462)
+
+System diagram:  
+![System Diagram](images/ch06/schenk2019_fig_02_reslam.jpg){ width=70% }
+
+- 3 components
+  - Visual odometry module: for relative camera motion estimation
+  - Local mapper: manages keyframes and optimizes a local window
+  - Global mapper: stores a global map and performs loop closure and 
+    relocalization
+
+Features:
+
+- Edge-based SLAM system for RGBD sensors
+  - Canny edges are detected for each frame
+- Utilize edges in all the subsequent steps in the proposed SLAM pipeline:
+  - Camera pose estimation
+  - Local sliding window optimization for depth refinement
+  - Loop closure
+  - Relocalization
+- Initial depth refinement in a sliding window
+- Edge-based loop closure verification
+- Fast system that runs in real-time on a CPU
+- Open-source
+
+#### 2.1.9 Fast and Robust Initialization for Visual-Inertial SLAM [@Campos2019FastInitVISLAM]
+
+- [Paper](https://ieeexplore.ieee.org/document/8793718)
+
+Features:
+
+- A fast method for joint initialization of monocular-inertial SLAM
+  built on the method proposed by [@Martinelli2014ClosedVISfM] and 
+  extended by [@Kaiser2017InitVIN] (the original method in the paper)
+- The original method is improved as follows:
+  - More general: allows incomplete feature tracks (features not seen by 
+    all cameras)
+  - More computationally efficient: uses the IMU preintegration method of 
+    [@Forster2015IMUPreint]
+  - Improved accuracy: uses 2 visual-inertial BA steps
+  - Improved robustness: uses novel observability and consensus tests to 
+    detect bad initializations
+- Scale errors decreases from up to 156% of the original method (215ms) to 
+  around 5% (1-2 seconds), or to less than 1% after performing visual-inertial
+  BA after 10 seconds
 
 
 ### 2.2 Robotics: Science and Systems 2019 (RSS2019)
