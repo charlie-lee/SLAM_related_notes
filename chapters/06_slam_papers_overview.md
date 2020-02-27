@@ -292,6 +292,12 @@
 #### 1.3.1 A Multi-State Constraint Kalman Filter for Vision-aided Inertial Navigation [@Mourikis2007MSCKF]
 
 - [Paper](https://ieeexplore.ieee.org/document/4209642)
+- Related materials:
+  - [Quaternion kinematics for the error-state Kalman filter](https://arxiv.org/abs/1711.02508): 
+    include related concepts/formulations on quaternions/rotational matrices,
+    and their applications in Kalman filter framework
+  - [Why and How to Avoid the Flipped Quaternion Multiplication](https://arxiv.org/abs/1801.07478):
+    details on different conventions for quaternions
 
 ##### 1.3.1.1 Overview
 
@@ -334,15 +340,18 @@
 - Evolving IMU state
   \[ 
      \V{X}_{IMU} = \begin{bmatrix}
-       {}_{G}^{I}\bar{\V{q}}^T &
+       {}_{G}^{I}\V{q}^T &
        \V{b}_g^T &
        {}^{G}\V{v}_I^T &
        \V{b}_a^T &
        {}^{G}\V{p}_I^T
      \end{bmatrix}^T
   \]
-  - \( {}_{G}^{I}\bar{\V{q}}^T \): unit **q**uaternion of rotation from
+  - \( {}_{G}^{I}\V{q}^T \): unit **q**uaternion of rotation from
     global frame \( \left\{ G \right\} \) to IMU frame \( \left\{ I \right\} \)
+    - ***WARNING***: this paper uses the **JPL convention** 
+      (\( ij = -ji = -k \)) for quaternions instead of the
+      ***Hamilton convention*** (\( ij = -ji = k \))
   - \( {}^{G}\V{v}_I^T \) & \( {}^{G}\V{p}_I^T \): 
     **v**elocity and **p**osition of IMU w.r.t. \( \left\{ G \right\} \)
   - \( \V{b}_g^T \) & \( \V{b}_a^T \): **b**iases which affect the 
@@ -362,23 +371,23 @@
   - Error definitions:
     - Standard additive errors for *position*, *velocity*, and *biases*
       - \( \tilde{x} = x - \hat{x} \) (error = real - estimate)
-    - Error for quaternion \( \bar{\V{q}} \): *error quaternion* 
-      \( \delta\bar{\V{q}} \)
-      - \( \hat{\V{q}} = \delta\bar{\V{q}} \otimes \hat{\bar{\V{q}}} \) where
+    - Error for quaternion \( \V{q} \): *error quaternion* 
+      \( \delta\V{q} \)
+      - \( \V{q} = \delta\V{q} \otimes \hat{\V{q}} \) where
         \( \otimes \) denotes quaternion multiplication
 
 - EKF state vector at time-step \( k \) with \( N \) camera poses included:
   \[
      \hat{\V{X}}_k = \begin{bmatrix}
        \hat{\V{X}}_{{IMU}_k}^T &
-       {}_G^{C_1}\hat{\bar{\V{q}}}^T &
+       {}_G^{C_1}\hat{\V{q}}^T &
        {}^G\hat{\V{p}}_{C_1}^T &
        \dots &
-       {}_G^{C_N}\hat{\bar{\V{q}}}^T &
+       {}_G^{C_N}\hat{\V{q}}^T &
        {}^G\hat{\V{p}}_{C_N}^T
      \end{bmatrix}^T
   \]
-  - \( {}_G^{C_i}\hat{\bar{\V{q}}}^T \) & \( {}^G\hat{\V{p}}_{C_i}^T \):
+  - \( {}_G^{C_i}\hat{\V{q}}^T \) & \( {}^G\hat{\V{p}}_{C_i}^T \):
     \( i \)th estimate of the camera attitude/pose and position
 
 - EKF error-state vector at time-step \( k \) with \( N \) camera poses 
@@ -386,16 +395,134 @@
   \[
      \tilde{\V{X}}_k = \begin{bmatrix}
        \tilde{\V{X}}_{{IMU}_k}^T &
-       \BG{\delta\theta}_{C_1}^T
+       \BG{\delta\theta}_{C_1}^T &
        {}^G\tilde{\V{p}}_{C_1}^T &
        \dots &
-       \BG{\delta\theta}_{C_N}^T
+       \BG{\delta\theta}_{C_N}^T &
        {}^G\tilde{\V{p}}_{C_N}^T
      \end{bmatrix}^T
   \]
-
+  
 ##### 1.3.1.3 Propagation
 
+###### 1.3.1.3.1 Continuous-time System Modeling
+
+- Time evolution of IMU state (derivative w.r.t. time / increment over period 
+  \( dt \)):
+  \[
+     \begin{bmatrix}
+       {}_G^I\V{\dot{q}}(t) \\
+       \V{\dot{b}}_g(t) \\
+       {}^G\V{\dot{v}}_I(t) \\
+       \V{\dot{b}}_a(t) \\ 
+       {}^G\V{\dot{p}}_I(t)
+     \end{bmatrix}
+     = \begin{bmatrix}
+         \frac{1}{2} \BG{\Omega}(\BG{\omega}(t)) {}_G^I\V{q}(t) \\
+         \V{n}_{wg}(t) \\
+         {}^G\V{a}(t) \\
+         \V{n}_{wa}(t) \\
+         {}^G\V{v}_I(t)
+       \end{bmatrix}
+  \]
+  where
+  \[
+     \BG{\omega} 
+     = \begin{bmatrix} \omega_x & \omega_y & \omega_z \end{bmatrix}^T, \quad
+     \BG{\Omega}(\BG{\omega})
+     = \begin{bmatrix}
+         -[\BG{\omega}]_{\times} & \BG{\omega} \\
+         -\BG{\omega}^T & 0
+       \end{bmatrix}
+  \]
+  - Ordinary differential equation (ODE) for \( {}_G^I\dot{\V{q}}(t) \):
+    \begin{align*}
+      {}_G^I\dot{\V{q}}(t) 
+      &= \frac{1}{2} {}_G^I\V{q}(t) 
+         \otimes \begin{bmatrix} \BG{\omega}^T & 0 \end{bmatrix}^T \\
+      &= \frac{1}{2} (0 \cdot \V{I}_{4 \times 4} + \BG{\Omega}(\BG{\omega}))
+         {}_G^I\V{q}(t) \\
+      &= \frac{1}{2} \BG{\Omega}(\BG{\omega}) {}_G^I\V{q}(t)
+    \end{align*}
+
+- Gyroscope and accelerometer measurement \( \BG{\omega}_m \) and 
+  \( \V{a}_m \) incorporating the effects of the planet's rotation 
+  \( \BG{\omega}_G \):
+  \[
+     \BG{\omega}_m 
+     = \BG{\omega} + \V{C}({}_G^I\V{q}) \BG{\omega}_G + \V{b}_g + \V{n}_g
+  \]
+  \[
+     \V{a}_m
+     = \V{C}({}_G^I\V{q})(
+       {}^G\V{a} - {}^G\V{g} + 2 [\BG{\omega}_G]_{\times} {}^G\V{v}_I
+       + [\BG{\omega}_G]_{\times}^2 {}^G\V{p}_I) + \V{b}_a + \V{n}_a
+  \]
+  where \( \V{C}(\cdot) \) converts an input into a rotational matrix
+  
+- *Estimates* of the evolving IMU state by applying expectation operator
+  to the equation of time evolution of IMU state
+  \[
+     \begin{bmatrix}
+       {}_G^I\V{\dot{\hat{q}}} \\
+       \V{\dot{\hat{b}}}_g \\
+       {}^G\V{\dot{\hat{v}}}_I \\
+       \V{\dot{\hat{b}}}_a \\ 
+       {}^G\V{\dot{\hat{p}}}_I
+     \end{bmatrix}
+     = \begin{bmatrix}
+         \frac{1}{2} \BG{\Omega}(\BG{\hat{\omega}}) {}_G^I\V{\hat{q}} \\
+         \V{0}_{3 \times 1} \\
+         \V{C}_{\V{\hat{q}}}^T \V{\hat{a}}
+         - 2 [\BG{\omega}]_{\times} {}^G\V{\hat{v}}_I 
+         - [\BG{\omega}]_{\times}^2 {}^G \V{\hat{p}}_I + {}^G \V{g} \\
+         \V{0}_{3 \times 1} \\
+         {}^G\V{\hat{v}}_I
+       \end{bmatrix}
+  \]
+  where 
+  \[ 
+     \V{C}_{\V{\hat{q}}} = \V{C}({}_G^I\V{\hat{q}}), \quad
+     \BG{\hat{\omega}} = \BG{\omega}_m - \V{\hat{b}}_g 
+                         - \V{C}_{\V{\hat{q}}} \BG{\omega}_G, \quad
+     \V{\hat{a}} = \V{a}_m - \V{\hat{b}}_a
+  \]
+
+- *Linearized* continuous-time model for IMU error-state:
+  \[
+     \V{\dot{\tilde{X}}}_{IMU} = \V{F} \V{\tilde{X}}_{IMU} + \V{G} \V{n}_{IMU}
+  \]
+  where 
+  \( \V{n}_{IMU} = \begin{bmatrix} 
+                     \V{n}_g^T &
+                     \V{n}_{wg}^T & 
+                     \V{n}_a^T &
+                     \V{n}_{wa}^T
+                   \end{bmatrix}_{12 \times 1}^T 
+  \) is the system noise, and 
+  \[
+     \V{F} 
+     = \begin{bmatrix}
+         -[\hat{\BG{\omega}}]_\times & -\V{I}_{3 \times 3} & 
+         \V{0} & \V{0} & \V{0} \\
+         \V{0} & \V{0} & \V{0} & \V{0} & \V{0} \\
+         -\V{C}_{\hat{\V{q}}}^T [\hat{\V{a}}]_\times & \V{0} & 
+         -2[\BG{\omega}_G]_\times & -\V{C}_{\hat{\V{q}}}^T & 
+         -[\BG{\omega}_G]_\times^2 \\
+         \V{0} & \V{0} & \V{0} & \V{0} & \V{0} \\
+         \V{0} & \V{0} & \V{I}_{3 \times 3} & \V{0} & \V{0}
+       \end{bmatrix}_{15 \times 15}
+  \] and 
+  \[
+     \V{G}
+     = \begin{bmatrix}
+         -\V{I}_{3 \times 3} & \V{0} & \V{0} & \V{0} \\
+         \V{0} & \V{I}_{3 \times 3} & \V{0} & \V{0} \\
+         \V{0} & \V{0} & -\V{C}_{\hat{q}}^T & \V{0} \\
+         \V{0} & \V{0} & \V{0} & \V{I}_{3 \times 3} \\
+         \V{0} & \V{0} & \V{0} & \V{0}
+       \end{bmatrix}_{15 \times 12}
+  \]
 
 
 ## 2. New Papers (2019)
