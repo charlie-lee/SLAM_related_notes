@@ -293,7 +293,7 @@
 
 - [Paper](https://ieeexplore.ieee.org/document/4209642)
 - Related materials:
-  - [Quaternion kinematics for the error-state Kalman filter](https://arxiv.org/abs/1711.02508): 
+  - [Quaternion kinematics for the error-state Kalman filter](https://arxiv.org/abs/1711.02508) [@Sola2017Quaternion]: 
     include related concepts/formulations on quaternions/rotational matrices,
     and their applications in Kalman filter framework
   - [Why and How to Avoid the Flipped Quaternion Multiplication](https://arxiv.org/abs/1801.07478):
@@ -776,7 +776,46 @@ Features:
 - Scale errors decreases from up to 156% of the original method (215ms) to 
   around 5% (1-2 seconds), or to less than 1% after performing visual-inertial
   BA after 10 seconds
+  
+#### 2.1.10 Visual SLAM: Why Bundle Adjust? [@Bustos2019WhyBA]
 
+- [Paper](https://ieeexplore.ieee.org/document/8793749)
+
+Algorithm for the proposed system:  
+![L-Infinity SLAM](images/ch06/bustos2019_alg_02_linf.jpg){ width=60% }
+
+Features:
+
+- A SLAM system called L-infinity SLAM that is not based on BA
+- Solution to problems of BA-based SLAM systems
+  - Problems:
+    - The need to maintain an accurate map and camera motions at keyframe rate
+    - Cannot deal with slow motion and pure rotational motion because of
+      the requirement on sufficient baselines for BA
+  - Solution:
+    - Conduct rotation averaging to optimize *camera orientations only*
+      instead of BA
+    - Given the orientations, camera positions and 3D points are estimated
+      via a quasi-convex optimization that can be *globally optimally* solved 
+- Efficient loop closure module
+  - Incorporation of relative translation directions to solve camera drifts
+
+#### 2.1.11 Illumination Robust Monocular Direct Visual Odometry for Outdoor Environment Mapping [@Wu2019MonoVO]
+
+- [Paper](https://ieeexplore.ieee.org/document/8793607)
+
+Features:
+
+- An illumination-robust direct monocular VO system focusing on modeling 
+  outdoor scenery
+- Evaluation on state-of-the-art illumination invariant cost functions
+  in the context of monocular joint optimization framework
+- An illumination-robust cost is proposed by combining intensity- and 
+  gradient-based costs with an adaptive weight
+- Illustration that sun glares can be modeled as local illumination changes,
+  and its adverse effect on motion estimation can be alleviated by dealing
+  with these local changes
+- Computational cost of the proposed system is higher than other methods
 
 ### 2.2 Robotics: Science and Systems 2019 (RSS2019)
 
