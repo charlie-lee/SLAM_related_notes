@@ -337,6 +337,9 @@
 
 ##### 1.3.1.2 Structure of EKF State Vector
 
+- Some references:
+  - Error-state Kalman Filter (ESKF): chapter 5 in [@Sola2017Quaternion]
+
 - Evolving IMU state
   \[ 
      \V{X}_{IMU} = \begin{bmatrix}
@@ -424,6 +427,7 @@
          \V{n}_{wa}(t) \\
          {}^G\V{v}_I(t)
        \end{bmatrix}
+     \tag{MSCKF-6} \label{eq-MSCKF-6}
   \]
   where
   \[
@@ -461,7 +465,7 @@
   where \( \V{C}(\cdot) \) converts an input into a rotational matrix
   
 - *Estimates* of the evolving IMU state by applying expectation operator
-  to the equation of time evolution of IMU state
+  to the equation of time evolution of IMU state in \eqref{eq-MSCKF-6}
   \[
      \begin{bmatrix}
        {}_G^I\V{\dot{\hat{q}}} \\
@@ -479,6 +483,7 @@
          \V{0}_{3 \times 1} \\
          {}^G\V{\hat{v}}_I
        \end{bmatrix}
+     \tag{MSCKF-9} \label{eq-MSCKF-9}
   \]
   where 
   \[ 
@@ -523,6 +528,36 @@
          \V{0} & \V{0} & \V{0} & \V{0}
        \end{bmatrix}_{15 \times 12}
   \]
+
+###### 1.3.1.3.2 Discrete-time Implementation
+
+- Time-step: \( T \)
+- Method for the propagation of the IMU state / EKF covariance matrix 
+  (i.e., to solve the ODE using numerical integration): 
+  5th order Runge-Kutta method
+  - Propagation: can be seen as the value of a function \( f(t) \) at time 
+    \( t_{base} + \delta t \) based on its value at time \( t_{base} \)
+    after one/multiple time-step(s) \( \delta t \) elapsed
+    - In this paper, propagation is to compute \( f(t_k + T) \) given
+      \( f(t_k) \) and time-step \( T \)
+- Propagation of IMU state (**not** error-state): 
+  numerical integration on the derivatives in \eqref{eq-MSCKF-9}
+- Propagation of EKF covariance matrix
+  - EKF covariance matrix \( \V{P}_{k|k} \)
+    \[
+       \V{P}_{k|k}
+       = \begin{bmatrix}
+           \V{P}_{II_{k|k}} & \V{P}_{IC_{k|k}} \\
+           \V{P}_{IC_{k|k}}^T & \V{P}_{CC_{k|k}}
+         \end{bmatrix}
+    \]
+  - where
+    - \( \V{P}_{II_{k|k}} \) is the \( 15 \times 15 \) covariance matrix
+      of the evolving IMU error-state
+    - \( \V{P}_{CC_{k|k}} \) is the \( 6N \times 6N \) covariance matrix
+      of the camera pose estimates
+    - \( \V{P}_{IC_{k|k}} \) is the correlation between IMU error-state
+      and camera pose estimates
 
 
 ## 2. New Papers (2019)
@@ -799,6 +834,11 @@ Features:
       via a quasi-convex optimization that can be *globally optimally* solved 
 - Efficient loop closure module
   - Incorporation of relative translation directions to solve camera drifts
+- Advantage of L-Infinity SLAM
+  - Many tasks of map maintenance (feature/map point selection, point culling,
+    map updating and aggregation) can be done in a low priority thread or even
+    offline
+  - The system can handle pure rotation motions
 
 #### 2.1.11 Illumination Robust Monocular Direct Visual Odometry for Outdoor Environment Mapping [@Wu2019MonoVO]
 
