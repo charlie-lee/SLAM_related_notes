@@ -857,6 +857,52 @@ Features:
   with these local changes
 - Computational cost of the proposed system is higher than other methods
 
+#### 2.1.12 KO-Fusion: Dense Visual SLAM with Tightly-Coupled Kinematic and Odometric Tracking [@Houseago2019KOFusion]
+
+- [Paper](https://ieeexplore.ieee.org/document/8793471)
+
+Features:
+
+- A dense SLAM system based on [ElasticFusion](http://www.roboticsproceedings.org/rss11/p01.pdf)
+- A full dense SLAM system on a mobile agent with omnidirectional motion 
+  capability where the transform between the camera frame and the agent body
+  frame is allowed to change
+- Tightly-coupled kinematic information from the robot actuators and 
+  odometric information from the moving base
+- Capability of real-time tracking and dense mapping at 30Hz while
+  running on a GPU
+- Joint optimization of scene geometry and robot actuator data to estimate
+  the pose of both the robot base and a camera mounted on the end effector
+- More robustness to fast and erratic motion with rapid motion, and a lack of
+  significant photometric and geometric variation
+  
+#### 2.1.13 DeepFusion: Real-Time Dense 3D Reconstruction for Monocular SLAM using Single-View Depth and Gradient Predictions [@Laidlow2019DeepFusion]
+
+- [Paper](https://ieeexplore.ieee.org/document/8793527)
+
+System diagram:  
+![DeepFusion](images/ch06/laidlow2019_fig_02_deepfusion.jpg)
+
+Features:
+
+- A 3D reconstruction system that leverages the output of a CNN to produce fully
+  dense depth maps for keyframes that include metric scale
+- Capability of real-time dense reconstructions on a GPU
+  - The network only needs to be run once per keyframe
+- Fusion of the output of a semi-dense multiview stereo algorithm, with
+  the depth and gradient predictions of a CNN, in a probabilistic fashion
+- Pose is estimated using ORB-SLAM2 (monocular)
+- Some details on the CNN in the paper:
+  - It is used to predict the log-depth, log-depth gradients, and associated 
+    uncertainties from the new keyframe image
+  - Log-depth gradients in the x- and y-directions are for the image planes
+    rather than surface normals, in order to maintain the linearity of
+    the optimization problem
+  - Network structure: similar to U-Net architecture, with 3 more identical
+    decoders added to predict log-depth uncertainties, log-depth gradients,
+    and log-depth gradient uncertainties
+
+
 ### 2.2 Robotics: Science and Systems 2019 (RSS2019)
 
 #### 2.2.1 Continuous Direct Sparse Visual Odometry from RGB-D Images [@Ghaffari2019RGBDVO]
